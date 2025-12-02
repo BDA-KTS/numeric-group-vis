@@ -7,27 +7,14 @@ author:
     affiliation: "GESIS Leibniz Institute for the Social Sciences"
 date: "2025-04-10"
 format:
-  html:
-    toc: true       # Generate table of contents automatically
-    toc-depth: 4    # Include up to 4 header levels in TOC
-    code-fold: false # Allow folding of code chunks in HTML output
-    theme: cosmo    # Use Bootswatch Cosmo theme for a clean look
-execute:
-  eval: false      # Do not execute code by default
-  warning: false   # Suppress warnings in output
-  message: false   # Suppress messages in output
-  echo: true       # Show code in output
+  html: default
 ---
 
-[![MethodsHub❤️ Guidelines](https://img.shields.io/badge/MethodsHub_Tutorial-GuidelinesV3-lightblue)](https://github.com/GESIS-Methods-Hub/guidelines-for-tutorials) ![](https://img.shields.io/badge/License-MIT-blue) ![](https://img.shields.io/badge/PR's-Welcome-lightgreen)
-
 ## Learning Objective
-I was working on a social science research project—trying to decode the relationship between people’s well-being and their social interactions. After spending hours collecting survey responses, I realized that raw numbers alone weren’t telling the entire story.
-
-> “I needed a better way to visualize my data to spot trends, patterns, and outliers.”  
-> That is when my journey with data visualization in **R** began.
 
 By completing this tutorial, you will:
+
+TODO
 
 1. Understand the strengths and limitations of each visualization type.
 2. Be able to implement and customize these visualizations in `ggplot2` and related packages.
@@ -40,12 +27,15 @@ By the end of this tutorial, you’ll have a handy arsenal of 9 powerful visuali
 
 ## Target Audience
 
-This tutorial is designed for:
+This tutorial is designed for intermediate users who have already visualized data in R and are looking for more ways to visualize.
 
-- **Social Science Researchers & Graduate Students:** Those analyzing survey or observational data who need clear, reproducible visualizations to support hypotheses and publications.
-- **Data Analysts & Statisticians:** Professionals exploring complex datasets in R who want to expand their toolbox with advanced plotting techniques.
-- **Academic Instructors & Educators:** Teachers seeking structured examples to demonstrate best practices in data visualization to social science students.
-- **Interdisciplinary Teams & Policy Analysts:** Practitioners who require accessible, publication-quality figures to communicate insights to stakeholders and decision-makers.
+## Duration
+
+Around TODO minutes.
+
+## Use Cases
+
+- TODO
 
 ## Computational Environment Setup
 
@@ -55,6 +45,8 @@ You can download it from: https://cran.r-project.org/.
 Install the required R packages by running:
 
 ```{r}
+#| label: install-packages
+#| eval: false
 # Core data wrangling & plotting
 install.packages("dplyr")
 install.packages("hrbrthemes")
@@ -79,23 +71,97 @@ install.packages("viridis")     # for color scales on maps
 install.packages("viridisLite")
 ```
 
-## Estimated Duration
+## Example Data
 
-- **Reading & Setup:** 5 minutes
-- **Code Walkthrough:** 20–30 minutes
-- **Hands-on Practice:** 10–15 minutes
+```{r}
+install.packages("curl")
+```
 
-Total: **35–50 minutes**
+```{r}
+library(jsonlite)
+```
+
+```{r}
+query <- "SELECT ?countryLabel ?capitalLabel ?latitude ?longitude ?continentLabel ?area ?population WHERE {
+  ?country wdt:P31 wd:Q6256;
+           wdt:P36 ?capital.
+  
+  ?capital wdt:P625 ?coord.
+  BIND(geof:latitude(?coord) AS ?latitude)
+  BIND(geof:longitude(?coord) AS ?longitude)
+  
+  ?country wdt:P30 ?continent.
+  ?capital p:P2046 ?areaStatement.
+  ?areaStatement psn:P2046 ?areaValue.
+  ?areaValue wikibase:quantityAmount ?area.
+  ?capital wdt:P1082 ?population.
+  
+  SERVICE wikibase:label {
+    bd:serviceParam wikibase:language 'en' .
+  }  
+}"
+
+url <- paste("https://query.wikidata.org/sparql?query=", URLencode(query), sep="")
+headers <- c("application/json", paste("Visualization-Tutorial", R.version.string))
+names(headers) <- c("Accept", "User-Agent")
+data <- fromJSON(readLines(url(url, headers = headers), warn=FALSE))
+data <- t(apply(data$results$bindings, 1, function(row) return(row[1:length(data$head$vars)*3])))
+colnames(data) <- sub("(Label)?.value", "", colnames(data))
+data <- data.frame(data)
+data <- aggregate(data, list(data$country), max)
+data <- data[c("country", "population", "area", "longitude", "latitude", "continent", "capital")]
+data$area <- as.numeric(data$area)
+data$population <- as.numeric(data$population)
+data$latitude <- as.numeric(data$latitude)
+data$longitude <- as.numeric(data$longitude)
+```
+
+```{r}
+head(data)
+```
+
+
+
 
 ## Input Data
 
 ```{r}
 # 1. load necessary libraries 
-
-library(dplyr)       # Data manipulation
-library(tidyr)       # Data reshaping
 library(ggplot2)     # Core plotting package
 library(ggbeeswarm)  # For geom_beeswarm()
+```
+
+```{r}
+ggplot(data, aes(x=area, fill=continent)) + geom_histogram(bins=10)
+```
+```{r}
+ggplot(data, aes(x=area, fill=continent)) + geom_density(alpha=0.2)
+```
+```{r}
+ggplot(data, aes(x=continent, y=area)) + geom_point()
+```
+```{r}
+ggplot(data, aes(x=continent, y=area)) + geom_point(alpha=0.2)
+```
+```{r}
+ggplot(data, aes(x=continent, y=area)) + geom_beeswarm()
+```
+```{r}
+ggplot(data, aes(x=continent, y=area)) + geom_point() + geom_jitter()
+```
+```{r}
+ggplot(data, aes(x=continent, y=area)) + geom_boxplot()
+```
+```{r}
+ggplot(data, aes(x=continent, y=area)) + geom_boxplot(outlier.shape=NA) + geom_jitter()
+```
+```{r}
+ggplot(data, aes(x=continent, y=area)) + geom_violin()
+```
+
+```{r}
+world_map <- map_data("world")
+ggplot() + geom_polygon(data=world_map, aes(x=long, y=lat, group=group), color="white") + geom_point(data=data, aes(x=longitude, y=latitude, size=population), color="red")
 ```
 
 # 1. Swarm Plots over Scatter Plots
@@ -104,6 +170,10 @@ My first big “aha” moment came when I had to compare numerical data (like re
 
 
 ```{r}
+
+library(dplyr)       # Data manipulation
+library(tidyr)       # Data reshaping
+
 # 2. Generate synthetic dataset
 
 set.seed(42)

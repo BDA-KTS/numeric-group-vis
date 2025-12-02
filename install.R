@@ -1,5 +1,5 @@
 # install.R
-install.pacakges("rlang")
+install.packages("rlang")
 install.packages("ggplot2")
 install.packages("dplyr", dependencies = TRUE)
 install.packages("forcats")
